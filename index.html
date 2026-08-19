@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NetShield Engine: Interactive Firewall Simulator</title>
+  
+  <link rel="stylesheet" href="styles.css">
+
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+
+  <div id="root"></div>
+
+  <script src="classes.js"></script>
+
+  <script type="text/babel">
+    const engine = new FirewallEngine();
+    const generator = new TrafficGenerator();
+
+    function App() {
+      const [packets, setPackets] = React.useState([]);
+      const [rules, setRules] = React.useState([...engine.rules]);
+      const [logs, setLogs] = React.useState([]);
+      const [isSimulating, setIsSimulating] = React.useState(true);
+      const [stats, setStats] = React.useState({ allowed: 0, blocked: 0, threats: 0 });
+
+      // Tetris Break Room States
+      const [tetrisScore, setTetrisScore] = React.useState(0);
+      const [tetrisActive, setTetrisActive] = React.useState(false);
+      const [tetrisGameOver, setTetrisGameOver] = React.useState(false);
+      const tetrisInstance = React.useRef(null);
+      const canvasRef = React.useRef(null);
+
+      // Form State
+      const [formAction, setFormAction] = React.useState("BLOCK");
+      const [formProtocol, setFormProtocol] = React.useState("TCP");
+      const [formIp, setFormIp] = React.useState("ANY");
+      const [formPort, setFormPort] = React.useState("ANY");
+
+      // Traffic Generator Loop
+      React.useEffect(() => {
+        if (!isSimulating) return;
+
+        const timeouts = [];
+        const interval = setInterval(() => {
+          const rawPacket = generator.generate();
+          rawPacket.laneY = Math.floor(Math.random() * 70) + 10;
+          setPackets((prev) => [...prev, rawPacket]);
+
+          const t1 = setTimeout(() => {
+            const processedPacket = engine.process(rawPacket);
+            
+            setStats((prev) => {
+              const isMalicious = processedPacket.matchedRule?.reason === "Malicious Signature Detected";
+              return {
+                allowed: prev.allowed + (processedPacket.status === "ALLOWED" ? 1 : 0),
+                blocked: prev.blocked + (processedPacket.status === "BLOCKED" ? 1 : 0),
+                threats: prev.threats + (isMalicious ? 1 : 0),
+              };
+            });
+
+            setLogs([...engine.logs]);
+
+            setPackets((prev) =>
+              prev.map((p) => (p.id === processedPacket.id ? processedPacket : p))
+            );
+          }, 1500);
+
+          const t2 = setTimeout(() => {
+            setPackets((prev) => prev.filter((p) => p.id !== rawPacket.id));
+          }, 3000);
+
+          timeouts.push(t1, t2);
+        }, 1500);
+
+        return () => {
+          clearInterval(interval);
+          timeouts.forEach((t) => clearTimeout(t));
+        };
+      }, [isSimulating]);
+
+      // Tetris Loop & Controls Setup
+      React.useEffect(() => {
+  if (!tetrisActive) return;
+  // Initialize Tetris passing the canvas Ref
+  const game = new TetrisGame(
+    canvasRef.current,
+    (score) => setTetrisScore(score),
+    () => setTetrisGameOver(true)
+  );
+  tetrisInstance.current = game;
+  setTetrisGameOver(false);
+  // Falling interval
+  const tetrisInterval = setInterval(() => {
+    if (!game.gameOver) {
+      game.drop();
+      game.draw();
+    }
+  }, 500);
+  // Control listeners
+  const handleKeyDown = (e) => {
+    if (game.gameOver) return;
+    
+    // Stop browser from scrolling up/down when playing with arrow keys
+    if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+      e.preventDefault();
+    }
+    if (e.key === 'ArrowLeft') game.move(-1);
+    if (e.key === 'ArrowRight') game.move(1);
+    if (e.key === 'ArrowUp') game.rotate();
+    if (e.key === 'ArrowDown') game.drop();
+    game.draw();
+  };
+  window.addEventListener('keydown', handleKeyDown);
+  return () => {
+    clearInterval(tetrisInterval);
+    window.removeEventListener('keydown', handleKeyDown);
+  };
+}, [tetrisActive]);
+
+      const handleAddRule = (e) => {
+        e.preventDefault();
+        engine.addRule(formAction, formProtocol, formIp, formPort);
+        setRules([...engine.rules]);
+        setFormIp("ANY");
+        setFormPort("ANY");
+      };
+
+      const handleDeleteRule = (id) => {
+        engine.deleteRule(id);
+        setRules([...engine.rules]);
+      };
+
+      return (
+        <div className="dashboard">
+          
+          {/* COLUMN 1: RULE CONTROLLER */}
+          <div className="panel">
+            <h2>🛡️ Rule Controller</h2>
+            <div className="rule-list">
+              {rules.map((rule) => (
+                <div key={rule.id} className={`rule-item ${rule.action.toLowerCase()}`}>
+                  <div className="rule-info">
+                    <strong>{rule.action}</strong> {rule.protocol} <br />
+                    IP: <code>{rule.sourceIp}</code> | Port: <code>{rule.port}</code>
+                  </div>
+                  {rule.id !== 2 && (
+                    <button className="btn-delete" onClick={() => handleDeleteRule(rule.id)}>×</button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <form className="rule-form" onSubmit={handleAddRule}>
+              <h3>Add Policy</h3>
+              <select value={formAction} onChange={(e) => setFormAction(e.target.value)}>
+                <option value="BLOCK">BLOCK</option>
+                <option value="ALLOW">ALLOW</option>
+              </select>
+              <select value={formProtocol} onChange={(e) => setFormProtocol(e.target.value)}>
+                <option value="ANY">Protocol: ANY</option>
+                <option value="TCP">TCP</option>
+                <option value="UDP">UDP</option>
+                <option value="ICMP">ICMP</option>
+              </select>
+              <input 
+                type="text" 
+                placeholder="IP Source (e.g. 8.8.8.8)" 
+                value={formIp} 
+                onChange={(e) => setFormIp(e.target.value)} 
+                required 
+              />
+              <input 
+                type="text" 
+                placeholder="Port (e.g. 80)" 
+                value={formPort} 
+                onChange={(e) => setFormPort(e.target.value)} 
+                required 
+              />
+              <button className="btn-primary" type="submit">Apply Rule</button>
+            </form>
+          </div>
+
+          {/* COLUMN 2: SIMULATION ARENA */}
+          <div className="panel arena">
+            <h2>⚡ Live Traffic Simulator</h2>
+            <div style={{ display: "flex", gap: "10px" }}>
+              <button className="btn-primary" onClick={() => setIsSimulating(!isSimulating)}>
+                {isSimulating ? "⏸️ Pause Simulator" : "▶️ Play Simulator"}
+              </button>
+              <button className="btn-primary" onClick={() => {
+                setStats({ allowed: 0, blocked: 0, threats: 0 });
+                setLogs([]);
+                engine.logs = [];
+              }}>
+                Clean Dashboard
+              </button>
+            </div>
+
+            <div className="simulation-window">
+              <div className="firewall-gateway">
+                <span className="gateway-badge">NetShield Core</span>
+              </div>
+
+              {packets.map((packet) => (
+                <div
+                  key={packet.id}
+                  className={`packet-node ${packet.status ? packet.status.toLowerCase() : ""}`}
+                  style={{ top: `${packet.laneY}%` }}
+                >
+                  <div><strong>ID:</strong> {packet.id} | {packet.protocol}</div>
+                  <div><code>{packet.sourceIp}:{packet.port}</code></div>
+                  <div style={{ fontSize: "0.65rem", opacity: 0.8, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {packet.payload}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* COLUMN 3: LOGS & BREAK ROOM */}
+          <div className="panel">
+            <h2>📊 Threat Log & Stats</h2>
+            
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "15px" }}>
+              <div style={{ padding: "10px", backgroundColor: "#0e2415", border: "1px solid var(--neon-green)", borderRadius: "4px", textAlign: "center" }}>
+                <span style={{ fontSize: "0.8rem", color: "#ccc" }}>Passed</span>
+                <div style={{ fontSize: "1.5rem", color: "var(--neon-green)", fontWeight: "bold" }}>{stats.allowed}</div>
+              </div>
+              <div style={{ padding: "10px", backgroundColor: "#2b0d10", border: "1px solid var(--neon-red)", borderRadius: "4px", textAlign: "center" }}>
+                <span style={{ fontSize: "0.8rem", color: "#ccc" }}>Blocked</span>
+                <div style={{ fontSize: "1.5rem", color: "var(--neon-red)", fontWeight: "bold" }}>{stats.blocked}</div>
+              </div>
+            </div>
+
+            {stats.threats > 0 && (
+              <div className="alert-glow" style={{ padding: "10px", backgroundColor: "#4a0006", border: "1px solid var(--neon-red)", color: "white", borderRadius: "4px", textAlign: "center", fontWeight: "bold", fontSize: "0.85rem", marginBottom: "15px" }}>
+                ⚠️ {stats.threats} ATTACKS BLOCKED
+              </div>
+            )}
+
+            {/* Collapsible Tetris game widget */}
+            <div className="tetris-panel">
+              <button className="btn-primary" style={{ width: "100%" }} onClick={() => setTetrisActive(!tetrisActive)}>
+                {tetrisActive ? "🚪 Close Break Room" : "🎮 Play Tetris (Bored?)"}
+              </button>
+              
+              {tetrisActive && (
+                <>
+                  {/* Replace <canvas id="tetris-canvas"... /> with this: */}
+                  <canvas ref={canvasRef} className="tetris-canvas" width="150" height="300"></canvas>
+                  <div style={{ fontSize: "0.85rem", color: "var(--neon-cyan)", width: "100%", textAlign: "center", marginTop: "5px" }}>
+                    <strong>Score: {tetrisScore}</strong>
+                    {tetrisGameOver && <div style={{ color: "var(--neon-red)", fontWeight: "bold" }}>Game Over!</div>}
+                  </div>
+                  <div className="tetris-controls">
+                    <button className="btn-tetris" onClick={() => { if (tetrisInstance.current) { tetrisInstance.current.move(-1); tetrisInstance.current.draw(); } }}>◀</button>
+                    <button className="btn-tetris" onClick={() => { if (tetrisInstance.current) { tetrisInstance.current.rotate(); tetrisInstance.current.draw(); } }}>▲</button>
+                    <button className="btn-tetris" onClick={() => { if (tetrisInstance.current) { tetrisInstance.current.move(1); tetrisInstance.current.draw(); } }}>▶</button>
+                  </div>
+                  <div style={{ fontSize: "0.65rem", color: "#888", textAlign: "center", marginTop: "5px" }}>
+                    Use Arrow Keys on your keyboard to play!
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Live scrollable log list */}
+            <div className="log-list" style={{ marginTop: "15px", flexGrow: 1 }}>
+              {logs.map((log, index) => (
+                <div key={index} className={`log-item ${log.packet.status ? log.packet.status.toLowerCase() : ""}`}>
+                  <div>
+                    <strong>[{log.packet.status}]</strong> Packet #{log.packet.id} <br />
+                    <code>{log.packet.sourceIp}:{log.packet.port}</code> → {log.packet.destinationIp}
+                  </div>
+                  <div style={{ fontSize: "0.75rem", color: "#aaa", marginTop: "5px" }}>
+                    Rule: <em>{log.rule?.action === "BLOCK" && log.rule?.reason ? log.rule.reason : `Rule ID #${log.rule?.id ?? 'N/A'}`}</em>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<App />);
+  </script>
+
+</body>
+</html>

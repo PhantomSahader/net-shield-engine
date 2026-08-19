@@ -1,0 +1,319 @@
+/* styles.css */
+
+/* =====================================================================
+   1. Theme Variables & Reset
+   ===================================================================== */
+:root {
+  --bg-dark: #070b19;
+  --panel-bg: #0d1527;
+  --neon-cyan: #00f0ff;
+  --neon-green: #39ff14;
+  --neon-red: #ff3131;
+  --neon-yellow: #ffbd03;
+  --text-color: #e2e8f0;
+  --border-glow: rgba(0, 240, 255, 0.2);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-dark);
+  color: var(--text-color);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  overflow-x: hidden;
+}
+
+/* =====================================================================
+   2. Main Layout (Three-Column Dashboard)
+   ===================================================================== */
+.dashboard {
+  display: grid;
+  grid-template-columns: 350px 1fr 380px;
+  height: 100vh;
+  gap: 15px;
+  padding: 15px;
+}
+
+.panel {
+  background-color: var(--panel-bg);
+  border: 1px solid var(--border-glow);
+  border-radius: 8px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 0 15px rgba(0, 240, 255, 0.05);
+}
+
+.panel h2 {
+  font-size: 1.2rem;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--neon-cyan);
+  margin-bottom: 15px;
+  border-bottom: 1px solid var(--border-glow);
+  padding-bottom: 10px;
+  text-shadow: 0 0 5px rgba(0, 240, 255, 0.5);
+}
+
+/* =====================================================================
+   3. Center Column - Simulation Arena
+   ===================================================================== */
+.arena {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.simulation-window {
+  flex-grow: 1;
+  border: 1px dashed var(--neon-cyan);
+  border-radius: 8px;
+  position: relative;
+  overflow: hidden;
+  background: radial-gradient(circle, #0e1a30 0%, #070b19 100%);
+  margin-top: 15px;
+}
+
+/* The Firewall Gateway Line in the center */
+.firewall-gateway {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 4px;
+  background-color: var(--neon-cyan);
+  box-shadow: 0 0 10px var(--neon-cyan);
+  transform: translateX(-50%);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gateway-badge {
+  background-color: var(--bg-dark);
+  border: 2px solid var(--neon-cyan);
+  color: var(--neon-cyan);
+  padding: 5px 10px;
+  font-size: 0.8rem;
+  border-radius: 12px;
+  font-weight: bold;
+  text-transform: uppercase;
+  transform: rotate(-90deg);
+  white-space: nowrap;
+}
+
+/* =====================================================================
+   4. Packet Animation styling
+   ===================================================================== */
+.packet-node {
+  position: absolute;
+  top: 50%; /* Adjusted dynamically by JS */
+  width: 140px;
+  padding: 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  background-color: rgba(13, 21, 39, 0.95);
+  border: 1px solid var(--neon-cyan);
+  box-shadow: 0 0 8px var(--neon-cyan);
+  transform: translateY(-50%);
+  z-index: 3;
+  
+  /* Applying the horizontal movement animation */
+  animation: travelRight 3s linear forwards;
+}
+
+/* Color states of packets */
+.packet-node.incoming {
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 8px var(--neon-cyan);
+}
+
+.packet-node.allowed {
+  border-color: var(--neon-green);
+  box-shadow: 0 0 10px var(--neon-green);
+  transition: all 0.5s ease;
+}
+
+.packet-node.blocked {
+  border-color: var(--neon-red);
+  box-shadow: 0 0 10px var(--neon-red);
+  transition: all 0.5s ease;
+}
+
+/* Keyframes for moving packets left-to-right */
+@keyframes travelRight {
+  0% {
+    left: -150px;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  /* The gateway is at 50% width. This is where processing happens */
+  100% {
+    left: 105%;
+  }
+}
+
+/* =====================================================================
+   5. UI Controls, Rules, and Logs
+   ===================================================================== */
+.rule-list, .log-list {
+  flex-grow: 1;
+  overflow-y: auto;
+  margin-bottom: 15px;
+}
+
+.rule-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: rgba(255, 255, 255, 0.03);
+  padding: 10px;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  border-left: 3px solid var(--neon-yellow);
+}
+
+.rule-item.block {
+  border-left-color: var(--neon-red);
+}
+
+.rule-item.allow {
+  border-left-color: var(--neon-green);
+}
+
+.rule-info {
+  font-size: 0.85rem;
+}
+
+.btn-delete {
+  background: transparent;
+  border: none;
+  color: var(--neon-red);
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.btn-delete:hover {
+  text-shadow: 0 0 5px var(--neon-red);
+}
+
+/* Form Styles */
+.rule-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-top: 1px solid var(--border-glow);
+  padding-top: 15px;
+}
+
+.rule-form input, .rule-form select {
+  background-color: var(--bg-dark);
+  border: 1px solid var(--border-glow);
+  color: var(--text-color);
+  padding: 8px;
+  border-radius: 4px;
+  outline: none;
+}
+
+.rule-form select:focus, .rule-form input:focus {
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 5px var(--neon-cyan);
+}
+
+.btn-primary {
+  background-color: transparent;
+  border: 1px solid var(--neon-cyan);
+  color: var(--neon-cyan);
+  padding: 10px;
+  font-weight: bold;
+  cursor: pointer;
+  text-transform: uppercase;
+  border-radius: 4px;
+  box-shadow: 0 0 5px rgba(0, 240, 255, 0.1);
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+  background-color: var(--neon-cyan);
+  color: var(--bg-dark);
+  box-shadow: 0 0 15px var(--neon-cyan);
+}
+
+/* Log Item styling */
+.log-item {
+  background-color: rgba(255, 255, 255, 0.02);
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  font-size: 0.8rem;
+  border-left: 3px solid #ccc;
+}
+
+.log-item.allowed {
+  border-left-color: var(--neon-green);
+}
+
+.log-item.blocked {
+  border-left-color: var(--neon-red);
+}
+
+/* Animation for glowing status alerts */
+.alert-glow {
+  animation: pulseAlert 1.5s infinite;
+}
+
+@keyframes pulseAlert {
+  0% { box-shadow: 0 0 5px var(--neon-red); }
+  50% { box-shadow: 0 0 20px var(--neon-red); }
+  100% { box-shadow: 0 0 5px var(--neon-red); }
+}
+/* =====================================================================
+   6. Tetris / Break Room Panels
+   ===================================================================== */
+.tetris-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  background-color: rgba(0, 0, 0, 0.3);
+  padding: 15px;
+  border-radius: 6px;
+  border: 1px solid var(--border-glow);
+  margin-top: 15px;
+}
+
+.tetris-canvas {
+  background-color: #070b19;
+  border: 2px solid var(--neon-cyan);
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+  display: block;
+}
+
+.tetris-controls {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+  width: 100%;
+}
+
+.btn-tetris {
+  background-color: transparent;
+  border: 1px solid var(--neon-cyan);
+  color: var(--neon-cyan);
+  padding: 5px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+.btn-tetris:hover {
+  background-color: var(--neon-cyan);
+  color: var(--bg-dark);
+}
